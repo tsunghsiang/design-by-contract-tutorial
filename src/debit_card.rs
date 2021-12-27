@@ -1,4 +1,3 @@
-use contracts::ensures;
 use contracts::invariant;
 use contracts::requires;
 
@@ -62,6 +61,7 @@ impl DebitCard {
     }
 
     #[requires(cash > 0, "withdraw should be greater than 0")]
+    #[requires(cash <= self.balance, "balance should be sufficient for withdraw")]
     #[ensures(self.balance == old(self.balance) - cash, "withdraw result equals previous balance minuses balance")]
     pub fn withdraw(&mut self, cash: i32) {
         self.balance -= cash;
@@ -97,8 +97,15 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn given_illegal_account_provided_when_debit_card_init_then_should_panic() {
+    fn given_account_with_invalid_digit_when_debit_card_init_then_should_panic() {
         let (account, balance, bank_id) = (String::from("k23456789012"), 0, String::from("812"));
+        let _card = DebitCard::init(&account, &balance, &bank_id);
+    }
+    
+    #[test]
+    #[should_panic]
+    fn given_account_with_invalid_length_when_debit_card_init_then_should_panic() {
+        let (account, balance, bank_id) = (String::from("0234567389012"), 0, String::from("812"));
         let _card = DebitCard::init(&account, &balance, &bank_id);
     }
 
@@ -111,8 +118,71 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn given_illegal_bank_id_provided_when_debit_card_init_then_should_panic() {
-        let (account, balance, bank_id) = (String::from("k23456789012"), 0, String::from("000"));
+    fn given_bank_id_with_invalid_digit_when_debit_card_init_then_should_panic() {
+        let (account, balance, bank_id) = (String::from("023456789012"), 0, String::from("000"));
         let _card = DebitCard::init(&account, &balance, &bank_id);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_bank_id_with_invalid_length_when_debit_card_init_then_should_panic() {
+        let (account, balance, bank_id) = (String::from("023456789012"), 0, String::from("0011"));
+        let _card = DebitCard::init(&account, &balance, &bank_id);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_less_than_zero_when_deposit_then_should_panic() {
+        let (account, balance, bank_id) = (String::from("123456789012"), 0, String::from("812"));
+        let mut card = DebitCard::init(&account, &balance, &bank_id);
+        card.deposit(-1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_equals_zero_when_deposit_then_should_panic() {
+        let (account, balance, bank_id) = (String::from("123456789012"), 0, String::from("812"));
+        let mut card = DebitCard::init(&account, &balance, &bank_id);
+        card.deposit(0);
+    }
+
+    #[test]
+    fn given_cash_greater_than_zero_when_deposit_then_should_not_panic() {
+        let (account, balance, bank_id) = (String::from("123456789012"), 0, String::from("812"));
+        let mut card = DebitCard::init(&account, &balance, &bank_id);
+        card.deposit(1000);
+        assert_eq!(&1000, card.get_balance());
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_less_than_zero_when_withdraw_then_should_panic() {
+        let (account, balance, bank_id) = (String::from("123456789012"), 0, String::from("812"));
+        let mut card = DebitCard::init(&account, &balance, &bank_id);
+        card.withdraw(-1);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_equals_zero_when_withdraw_then_should_panic() {
+        let (account, balance, bank_id) = (String::from("123456789012"), 0, String::from("812"));
+        let mut card = DebitCard::init(&account, &balance, &bank_id);
+        card.withdraw(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_greater_than_balance_when_withdraw_then_should_panic() {
+        let (account, balance, bank_id) = (String::from("123456789012"), 1000, String::from("812"));
+        let mut card = DebitCard::init(&account, &balance, &bank_id);
+        card.withdraw(2000);
+    }
+
+    #[test]
+    fn given_cash_greater_than_zero_when_withdraw_then_should_not_panic() {
+        let (account, balance, bank_id) = (String::from("123456789012"), 10000, String::from("812"));
+        let mut card = DebitCard::init(&account, &balance, &bank_id);
+        card.withdraw(5000);
+        assert_eq!(&5000, card.get_balance());
     }
 }

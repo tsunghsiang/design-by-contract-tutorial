@@ -1,5 +1,4 @@
 use crate::debit_card::DebitCard;
-use contracts::ensures;
 use contracts::invariant;
 use contracts::requires;
 
@@ -36,7 +35,7 @@ impl ATM {
     }
 
     #[requires(self.cash_reserves >= 0, "cash_reserves should be a non-negative number")]
-    fn get_cash_reserve(&self) -> &i32 {
+    pub fn get_cash_reserve(&self) -> &i32 {
         &self.cash_reserves
     }
 
@@ -45,10 +44,10 @@ impl ATM {
     pub fn deposit(&mut self, card: &mut DebitCard, cash: i32) {
         if &self.bank_id == card.get_bank_id() {
             self.cash_reserves += cash.clone();
-            card.deposit(cash.clone())
+            card.deposit(cash.clone());
         } else {
             self.cash_reserves += cash.clone() + 15;
-            card.deposit(cash.clone() - 15)
+            card.deposit(cash.clone() - 15);
         }
     }
 
@@ -60,8 +59,100 @@ impl ATM {
             self.cash_reserves -= cash.clone();
             card.withdraw(cash.clone());
         } else {
-            self.cash_reserves -= cash.clone() + 15;
-            card.withdraw(cash.clone() - 15)
+            self.cash_reserves -= cash.clone();
+            self.cash_reserves += 15;
+            card.withdraw(cash.clone() + 15);
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::atm::ATM;
+    use crate::debit_card::DebitCard;
+
+    #[test]
+    #[should_panic]
+    fn given_bank_id_with_invalid_length_when_atm_init_then_should_panic() {
+        let (bank_id, reserves) = ("1234", &0);
+        let _atm = ATM::init(bank_id, reserves);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_bank_id_with_invalid_digit_when_atm_init_then_should_panic() {
+        let (bank_id, reserves) = ("000", &0);
+        let _atm = ATM::init(bank_id, reserves);
+    }
+
+    #[test]
+    fn given_legal_bank_id_when_atm_init_then_should_not_panic() {
+        let (bank_id, reserves) = ("006", &10);
+        let atm = ATM::init(bank_id, reserves);
+        assert_eq!("006", atm.get_bank_id());
+        assert_eq!(&10, atm.get_cash_reserve());
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_invalid_reserves_when_atm_init_then_should_panic() {
+        let (bank_id, reserves) = ("812", &-20);
+        let _atm = ATM::init(bank_id, reserves);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_less_than_zero_when_deposit_then_should_panic(){
+        let mut card = DebitCard::init("111111111111", &0, "812");
+        let mut atm = ATM::init("812", &200000);
+        atm.deposit(&mut card, -1000);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_equals_zero_when_deposit_then_should_panic(){
+        let mut card = DebitCard::init("111111111111", &0, "812");
+        let mut atm = ATM::init("812", &200000);
+        atm.deposit(&mut card, 0);
+    }
+
+    #[test]
+    fn given_cash_greater_than_zero_when_deposit_then_should_not_panic(){
+        let mut card = DebitCard::init("111111111111", &0, "812");
+        let mut atm = ATM::init("812", &200000);
+        atm.deposit(&mut card, 2000);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_less_than_zero_when_withdraw_then_should_panic(){
+        let mut card = DebitCard::init("111111111111", &0, "812");
+        let mut atm = ATM::init("812", &200000);
+        atm.withdraw(&mut card, -2000);
+    }
+
+    #[test]
+    #[should_panic]
+    fn given_cash_equals_zero_when_withdraw_then_should_panic(){
+        let mut card = DebitCard::init("111111111111", &0, "812");
+        let mut atm = ATM::init("812", &200000);
+        atm.withdraw(&mut card, 0);
+    }
+    
+    #[test]
+    #[should_panic]
+    fn given_reserves_less_than_withdrawn_cash_when_withdraw_then_should_panic(){
+        let mut card = DebitCard::init("111111111111", &10000, "812");
+        let mut atm = ATM::init("812", &1000);
+        atm.withdraw(&mut card, 2000);
+    }
+
+    #[test]
+    fn given_sufficient_reserves_when_withdraw_then_should_not_panic(){
+        let mut card = DebitCard::init("111111111111", &10000, "812");
+        let mut atm = ATM::init("812", &10000);
+        atm.withdraw(&mut card, 2000);
+        assert_eq!(&8000, card.get_balance());
+        assert_eq!(&8000, atm.get_cash_reserve());
+    }  
 }
